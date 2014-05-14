@@ -40,16 +40,6 @@ void printMatrix() {
 	}
 }
 
-void printMinor(int m[3][3]) {
-	int i, j;
-	for (i = 0; i < 3; ++i) {
-		for (j = 0; j< 3; ++j) {
-			printf("%d ", m[i][j]);
-		}
-		printf("\n");
-	}
-}
-
 
 void * det(void * parametr) {
 	
@@ -76,9 +66,9 @@ int main(int argc, char const *argv[])
 	
 	pthread_t tid[4];
 
+	ELEMENT * el = (ELEMENT *)malloc(sizeof(ELEMENT));
+	el->row = 0;
 	for (i = 0; i < 4; ++i) {
-		ELEMENT * el = (ELEMENT *)malloc(sizeof(ELEMENT));
-		el->row = 0;
 		el->col = i;
 		pthread_create(&tid[i], NULL, det, (void *)el);
 		pthread_join(tid[i], NULL);
@@ -86,5 +76,6 @@ int main(int argc, char const *argv[])
 
 	printf("\n");
 	printf("Wyznacznik: %d\n", result);
+	free(el);
 	return 0;
 }
