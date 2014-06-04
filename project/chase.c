@@ -164,7 +164,6 @@ void *reader(void *argum) {
 	            	XSetForeground(mydisplay,mygc,whiteColor.pixel);
 	            	//printf("read X: %d \t read Y: %d\n", players[index].x,players[index].y);	            
 	            	XFillRectangle(mydisplay,mywindow,mygc,players[index].x, players[index].y, players[index].x + RECTSIZE, players[index].y + RECTSIZE);
-	            	XFlush(mydisplay);
 	            	XSetForeground(mydisplay,mygc,blueColor.pixel);
 	            	if (p == buf->pid ) {
 	            		XSetForeground(mydisplay,mygc,greenColor.pixel);
