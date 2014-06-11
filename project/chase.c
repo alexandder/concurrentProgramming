@@ -171,12 +171,27 @@ void *reader(void *argum) {
 	            	if (players[index].isChasing == 1) {
 	            		XSetForeground(mydisplay,mygc,redColor.pixel);
 	            	}
-	            	XOffsetRegion(players[index].region, buf->x - players[index].x, buf->y - players[index].y);
-	               	XSetRegion(mydisplay, mygc, players[index].region);
-	               	players[index].x = buf->x;
+	            	//XOffsetRegion(players[index].region, buf->x - players[index].x, buf->y - players[index].y);
+	               	//XSetRegion(mydisplay, mygc, players[index].region);
+	               	//XFillRectangle(mydisplay,mywindow,mygc,players[index].x, players[index].y, players[index].x + RECTSIZE, players[index].y + RECTSIZE);
+	               	//XFlush(mydisplay);
+			XDestroyRegion(players[index].region);
+					XPoint pt_arr[4];
+		   			pt_arr[0].x = buf->x;
+				    pt_arr[0].y =  buf->y;
+				    pt_arr[1].x =  buf->x + RECTSIZE;
+				    pt_arr[1].y =  buf->y;
+				    pt_arr[2].x =  buf->x + RECTSIZE;
+				    pt_arr[2].y =  buf->y + RECTSIZE;
+				    pt_arr[3].x =  buf->x;
+				    pt_arr[3].y =  buf->y + RECTSIZE;
+				    players[index].region = XPolygonRegion(&pt_arr, 4, EvenOddRule);
+				    XSetRegion(mydisplay, mygc, players[index].region);
+				    XClearWindow(mydisplay, mywindow);
+				    XFillRectangle(mydisplay,mywindow,mygc,buf->x,buf->y,buf->x +RECTSIZE,buf->y + RECTSIZE);
+				    XFlush(mydisplay);
+			players[index].x = buf->x;
 	               	players[index].y = buf->y;
-	               	XFillRectangle(mydisplay,mywindow,mygc,players[index].x, players[index].y, players[index].x + RECTSIZE, players[index].y + RECTSIZE);
-	               	XFlush(mydisplay);	               	
 	            }
 	            pthread_mutex_unlock(&lock);
 	        }
@@ -287,7 +302,7 @@ int main(int argc, char const *argv[]) {
 	   			}
 	            break;
 
-            case ButtonPress:
+		case ButtonPress:
 
 	            xw1=myevent.xbutton.x; 
 	            yw1=myevent.xbutton.y;
@@ -315,7 +330,7 @@ int main(int argc, char const *argv[]) {
 		               	if (players[k].pid != p) {
 		               		XIntersectRegion(players[index].region, players[k].region, intersect);
 		               		if (!(XEmptyRegion(intersect) == True)) {
-		               			printf("Found not-empty\n");
+					  //printf("Found not-empty\n");
 								bufw->newRunnerPid = players[k].pid;
 							    break;
 		               		}
@@ -328,7 +343,7 @@ int main(int argc, char const *argv[]) {
               	break;
 
             case KeyPress:
-            	printf("End\n");
+	      //printf("End\n");
             	playersNumber--;
             	bufw->pid=p;
             	bufw->end = 1;
