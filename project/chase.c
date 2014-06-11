@@ -8,6 +8,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <X11/Xutil.h>
+
 #define RECTSIZE 20
 #define MAXPLAYERS 10
 
@@ -20,13 +21,14 @@ Visual *myvisual;
 int mydepth;
 int myscreen;
 Colormap mycolormap;
-XColor mycolor,mycolor1,dummy;
+XColor dummy;
 XColor redColor;
 XColor blueColor;
 XColor whiteColor;
 XColor yellowColor;
 XColor greenColor;
 XEvent myevent;
+
 pthread_t tid,tid1;
 struct buffer {
 	int x;
@@ -47,16 +49,13 @@ typedef struct player {
   int isChasing;
   int x;
   int y;
+  int lockMoves;
 }PLAYER;
 
-PLAYER currentPlayer;
+int startX1, startX2;
+int startY1, startY2;
 PLAYER players[MAXPLAYERS];
 int playersNumber = 0;
-
-int currentX1;
-int currentY1;
-int currentX2;
-int currentY2;
 
 
 int getPlayerIndex(PLAYER pl[], int playerN, int pid) {
@@ -67,6 +66,16 @@ int getPlayerIndex(PLAYER pl[], int playerN, int pid) {
 		}
 	}
 	return -1;
+}
+
+int getRunnerIndex(PLAYER pl[], int playerN) {
+	int i;
+	for (i = 0; i < playerN; i++) {
+		if (pl[i].isChasing == 1) {
+			return i;
+		}
+	}
+	return -1;	
 }
 
 void *reader(void *argum) {
@@ -81,121 +90,192 @@ void *reader(void *argum) {
 		while (1) {  
   
  		if (read(fd,buf,bufsize)>0) {
-     
-        	//printf("Odczytano wspolrzedne: %5d, %5d\n",buf->x,buf->y);
-        	//printf("PID: %d \t isChasing: %d \n",buf->pid, buf->isChasing);
-        	//printf("playersNumber: %d\n", playersNumber);
-         	//printf("pid= %5d p= %5d argum= %8d\n",buf->pid,p,argum);
 
  			if (buf->x > 530 || buf->x <= 0 || buf->y > 530 || buf->y <= 0) {
  				continue;
  			}
  			else {
-        	if (((buf->pid==p)&&(argum!=NULL))||((buf->pid!=p)&&(argum==NULL))) {
-				//printf("Probujemy zablokowac\n");
-	            pthread_mutex_lock(&lock);
+        		if (((buf->pid==p)&&(argum!=NULL))||((buf->pid!=p)&&(argum==NULL))) {
+		            pthread_mutex_lock(&lock);
 
+		            // change colors
+		            if (buf->newRunnerPid > 0 && buf->end != 1) {
+		            	int oldIndex = getPlayerIndex(players, MAXPLAYERS, buf->pid);	
 
-	            // change colors
-	            if (buf->newRunnerPid > 0) {
-	            	printf("Color change\n");
-	            	int newIndex = getPlayerIndex(players, MAXPLAYERS, buf->newRunnerPid);
-	            	int oldIndex = getPlayerIndex(players, MAXPLAYERS, buf->pid);
-	            	players[oldIndex].isChasing = 0;
-	            	players[newIndex].isChasing = 1;
-	            	XSetForeground(mydisplay,mygc,redColor.pixel);
-	            	XSetRegion(mydisplay, mygc, players[newIndex].region);
-	               	XFillRectangle(mydisplay,mywindow,mygc,players[newIndex].x, players[newIndex].y, players[newIndex].x + RECTSIZE, players[newIndex].y + RECTSIZE);
-	               	XFlush(mydisplay);
-	               	XSetForeground(mydisplay,mygc,blueColor.pixel);
-	            	if (p == players[oldIndex].pid ) {
-	            		XSetForeground(mydisplay,mygc,greenColor.pixel);
-	            	}
-	            	XSetRegion(mydisplay, mygc, players[oldIndex].region);
-	               	XFillRectangle(mydisplay,mywindow,mygc,players[oldIndex].x, players[oldIndex].y, players[oldIndex].x + RECTSIZE, players[oldIndex].y + RECTSIZE);
-	               	XFlush(mydisplay);
-	            }
-	            // Add new player
-	            else if (getPlayerIndex(players, MAXPLAYERS, buf->pid) == -1 && buf->pid != -1 && buf->pid != 1) {
-	            	
-	            	printf("Add new player\n");
-	            	players[playersNumber].pid = buf->pid;
-	            	players[playersNumber].x = buf->x;
-	            	players[playersNumber].y = buf->y;
-	            	XPoint arr[4];
+		            	if (players[oldIndex].lockMoves == 0) {
+		            		
+			            	int newIndex = getPlayerIndex(players, MAXPLAYERS, buf->newRunnerPid);
+			            	players[oldIndex].isChasing = 0;
+			            	players[newIndex].isChasing = 1;
+			            	players[newIndex].lockMoves = RECTSIZE + 5;
+		            		XClearWindow(mydisplay, mywindow);
+		            		int j;
+		               		for (j = 0; j < MAXPLAYERS; ++j) {
+		               			if (players[j].pid > 0) {
+			               			XSetForeground(mydisplay,mygc,blueColor.pixel);
+			            			if (p == players[j].pid ) {
+			            				XSetForeground(mydisplay,mygc,greenColor.pixel);
+			            			}
+			            			if (players[j].isChasing == 1) {
+			            				XSetForeground(mydisplay,mygc,redColor.pixel);
+			            			}
+			            			XSetRegion(mydisplay, mygc, players[j].region);
+			            			XFillRectangle(mydisplay,mywindow,mygc,players[j].x,
+			               			players[j].y, players[j].x + RECTSIZE, players[j].y + RECTSIZE);	
+			               		}
+		              	 	}
+			            	XFlush(mydisplay);
+			               	printf("Change, nplayers: %d\n", playersNumber);
+		            		for (j = 0; j < MAXPLAYERS; ++j) {
+			               		if (players[j].pid > -1000) {
+			               			printf("PID: %d\tchasing:%d\tlockMoves:%d\n",players[j].pid, players[j].isChasing, players[j].lockMoves);
+			               		}
+		               		}
+		               	printf("\n");
+			            }
+		        	}
 
-	            	arr[0].x = buf->x;
-				    arr[0].y = buf->y;
-				    arr[1].x = buf->x + RECTSIZE;
-				    arr[1].y = buf->y;
-				    arr[2].x = buf->x + RECTSIZE;
-				    arr[2].y = buf->y + RECTSIZE;
-				    arr[3].x = buf->x;
-				    arr[3].y = buf->y + RECTSIZE;
-	            	players[playersNumber].region = XPolygonRegion(&arr, 4, EvenOddRule);
+		            // Add new player
+		            else if (getPlayerIndex(players, MAXPLAYERS, buf->pid) == -1 && buf->pid != -1 && buf->pid != 1 && buf->end != 1) {
+		            	int j;
+		            	int newIndex;
+		            	for (j = 0; j < MAXPLAYERS; ++j) {
+		            		if (players[j].pid < 1) {
+		            			newIndex = j;
+		            			break;
+		            		}	     	
+		            	}	     
+		            	players[newIndex].pid = buf->pid;
+		            	players[newIndex].x = buf->x;
+		            	players[newIndex].y = buf->y;
+		            	players[newIndex].lockMoves = 0;
+		            	XPoint arr[4];
 
-	            	if (playersNumber == 0) {
-	            		players[playersNumber].isChasing = 1;
-	            	}
-	            	else {
-	            		players[playersNumber].isChasing = 0;	
-	            	}
-	            	playersNumber++;
-	            	int k;
-	            	for (k = 0; k < playersNumber; k++) {
-	            		printf("PID: %d\t X: %d \t Y: %d \t CH: %d\n", players[k].pid, players[k].x, players[k].y, players[k].isChasing);
-	            		
-	            	}
-	            	printf("Current pid: %d\n", p);
-	            	printf("playersNumber: %d\n", playersNumber);
-	            }
-	            // Exit
-	            else if (buf->end == 1) {
-	            	printf("Exit game\n");
-	            	int index = getPlayerIndex(players, MAXPLAYERS, buf->pid);
-	            	XSetForeground(mydisplay,mygc,whiteColor.pixel);
-	            	XFillRectangle(mydisplay,mywindow,mygc,players[index].x, players[index].y, players[index].x + RECTSIZE, players[index].y + RECTSIZE);
-	            	XFlush(mydisplay);
-	            	playersNumber--;
-	            }
-	            // Move player
-	            else {
-	            	int index = getPlayerIndex(players, MAXPLAYERS, buf->pid);
-	            	XSetForeground(mydisplay,mygc,whiteColor.pixel);
-	            	//printf("read X: %d \t read Y: %d\n", players[index].x,players[index].y);	            
-	            	XFillRectangle(mydisplay,mywindow,mygc,players[index].x, players[index].y, players[index].x + RECTSIZE, players[index].y + RECTSIZE);
-	            	XSetForeground(mydisplay,mygc,blueColor.pixel);
-	            	if (p == buf->pid ) {
-	            		XSetForeground(mydisplay,mygc,greenColor.pixel);
-	            	}
-	            	if (players[index].isChasing == 1) {
-	            		XSetForeground(mydisplay,mygc,redColor.pixel);
-	            	}
-	            	//XOffsetRegion(players[index].region, buf->x - players[index].x, buf->y - players[index].y);
-	               	//XSetRegion(mydisplay, mygc, players[index].region);
-	               	//XFillRectangle(mydisplay,mywindow,mygc,players[index].x, players[index].y, players[index].x + RECTSIZE, players[index].y + RECTSIZE);
-	               	//XFlush(mydisplay);
-			XDestroyRegion(players[index].region);
-					XPoint pt_arr[4];
-		   			pt_arr[0].x = buf->x;
-				    pt_arr[0].y =  buf->y;
-				    pt_arr[1].x =  buf->x + RECTSIZE;
-				    pt_arr[1].y =  buf->y;
-				    pt_arr[2].x =  buf->x + RECTSIZE;
-				    pt_arr[2].y =  buf->y + RECTSIZE;
-				    pt_arr[3].x =  buf->x;
-				    pt_arr[3].y =  buf->y + RECTSIZE;
-				    players[index].region = XPolygonRegion(&pt_arr, 4, EvenOddRule);
-				    XSetRegion(mydisplay, mygc, players[index].region);
-				    XClearWindow(mydisplay, mywindow);
-				    XFillRectangle(mydisplay,mywindow,mygc,buf->x,buf->y,buf->x +RECTSIZE,buf->y + RECTSIZE);
-				    XFlush(mydisplay);
-			players[index].x = buf->x;
-	               	players[index].y = buf->y;
-	            }
-	            pthread_mutex_unlock(&lock);
-	        }
-	    }
+		            	arr[0].x = buf->x;
+					    arr[0].y = buf->y;
+					    arr[1].x = buf->x + RECTSIZE;
+					    arr[1].y = buf->y;
+					    arr[2].x = buf->x + RECTSIZE;
+					    arr[2].y = buf->y + RECTSIZE;
+					    arr[3].x = buf->x;
+					    arr[3].y = buf->y + RECTSIZE;
+		            	players[newIndex].region = XPolygonRegion(arr, 4, EvenOddRule);
+
+		            	if (playersNumber == 0) {
+		            		players[newIndex].isChasing = 1;
+		            	}
+		            	else {
+		            		players[newIndex].isChasing = 0;	
+		            	}
+		            	playersNumber++;
+
+		            	XClearWindow(mydisplay, mywindow);
+		               	for (j = 0; j < MAXPLAYERS; ++j) {
+		               		if (players[j].pid > 0) {
+		               			XSetForeground(mydisplay,mygc,blueColor.pixel);
+		            			if (p == players[j].pid ) {
+		            				XSetForeground(mydisplay,mygc,greenColor.pixel);
+		            			}
+		            			if (players[j].isChasing == 1) {
+		            				XSetForeground(mydisplay,mygc,redColor.pixel);
+		            			}
+		            			XSetRegion(mydisplay, mygc, players[j].region);
+		            			XFillRectangle(mydisplay,mywindow,mygc,players[j].x,
+		               			players[j].y, players[j].x + RECTSIZE, players[j].y + RECTSIZE);	
+		               		}
+
+		               	}
+		            	XFlush(mydisplay);
+		            	printf("Add, nplayers: %d\n", playersNumber);
+		            	for (j = 0; j < MAXPLAYERS; ++j) {
+			               	if (players[j].pid > -1000) {
+			               		printf("PID: %d\tchasing:%d\tlockMoves:%d\n",players[j].pid, players[j].isChasing, players[j].lockMoves);
+			               	}
+		               	}
+		               	printf("\n");
+		            }
+		            // Exit
+		            else if (buf->end == 1) {
+		            	int index = getPlayerIndex(players, MAXPLAYERS, buf->pid);
+		            
+		               	if (buf->newRunnerPid > 0) {
+		               		int newInd = getPlayerIndex(players, MAXPLAYERS, buf->newRunnerPid);
+		               		players[newInd].isChasing = 1;
+		               	}
+		               	players[index].pid = -1;
+		               	players[index].isChasing = 0;
+		               	players[index].lockMoves = 0;
+		               	XClearWindow(mydisplay, mywindow);
+
+		               	int j;
+		               	for (j = 0; j < MAXPLAYERS; ++j) {
+		               		if (players[j].pid > 0) {
+		               			XSetForeground(mydisplay,mygc,blueColor.pixel);
+		            			if (p == players[j].pid ) {
+		            				XSetForeground(mydisplay,mygc,greenColor.pixel);
+		            			}
+		            			if (players[j].isChasing == 1) {
+		            				XSetForeground(mydisplay,mygc,redColor.pixel);
+		            			}
+		            			XSetRegion(mydisplay, mygc, players[j].region);
+		            			XFillRectangle(mydisplay,mywindow,mygc,players[j].x,
+		               			players[j].y, players[j].x + RECTSIZE, players[j].y + RECTSIZE);	
+		               		}
+
+		               	}
+		               	playersNumber--;
+		               	printf("exit, nplayers: %d\n", playersNumber);
+		               	for (j = 0; j < MAXPLAYERS; ++j) {
+			               	if (players[j].pid > -1000) {
+			               		printf("PID: %d\tchasing:%d\tlockMoves:%d\n",players[j].pid, players[j].isChasing, players[j].lockMoves);
+			               	}
+		               	}
+		               	printf("\n");
+		            	XFlush(mydisplay);
+
+		            }
+		            // Move player
+		            else {
+		            	int index = getPlayerIndex(players, MAXPLAYERS, buf->pid);
+						XDestroyRegion(players[index].region);
+						XPoint pt_arr[4];
+			   			pt_arr[0].x = buf->x;
+					    pt_arr[0].y = buf->y;
+					    pt_arr[1].x = buf->x + RECTSIZE;
+					    pt_arr[1].y = buf->y;
+					    pt_arr[2].x = buf->x + RECTSIZE;
+					    pt_arr[2].y = buf->y + RECTSIZE;
+					    pt_arr[3].x = buf->x;
+					    pt_arr[3].y = buf->y + RECTSIZE;
+					    players[index].region = XPolygonRegion(pt_arr, 4, EvenOddRule);
+					    XClearWindow(mydisplay, mywindow);
+					    players[index].x = buf->x;
+		               	players[index].y = buf->y;
+		               	int j;
+		               	for (j = 0; j < MAXPLAYERS; ++j) {
+		               		if (players[j].pid > 0) {
+		               			XSetForeground(mydisplay,mygc,blueColor.pixel);
+		            			if (p == players[j].pid ) {
+		            				XSetForeground(mydisplay,mygc,greenColor.pixel);
+		            			}
+		            			if (players[j].isChasing == 1) {
+		            				XSetForeground(mydisplay,mygc,redColor.pixel);
+		            			}
+		            			XSetRegion(mydisplay, mygc, players[j].region);
+		            			XFillRectangle(mydisplay,mywindow,mygc,players[j].x,
+		               			players[j].y, players[j].x + RECTSIZE, players[j].y + RECTSIZE);	
+		               		}
+
+		               	}
+					    XFlush(mydisplay);
+		               	int runnerIndex = getRunnerIndex(players, MAXPLAYERS);
+		               	if (players[runnerIndex].lockMoves > 0) {
+		               		players[runnerIndex].lockMoves--;
+		               	}
+		            }
+		            pthread_mutex_unlock(&lock);
+		        }
+		    }
      	}
    	}
 }
@@ -205,14 +285,14 @@ void *reader(void *argum) {
 
 int main(int argc, char const *argv[]) {
 	
-	p=getpid();
+	p = getpid();
 	XInitThreads();
   	int sed = time(NULL);
   	srand(sed);
-  	currentX1 = rand() % 400;
-  	currentY1 = rand() % 500;
-    currentX2 = currentX1 + RECTSIZE;
-    currentY2 = currentX1 + RECTSIZE;	
+  	startX1 = rand() % 500;
+  	startY1 = rand() % 500;
+    startX2 = startX1 + RECTSIZE;
+    startY2 = startX1 + RECTSIZE;	
 
 	mydisplay = XOpenDisplay("");
 	myscreen = DefaultScreen(mydisplay);
@@ -228,11 +308,7 @@ int main(int argc, char const *argv[]) {
 
 	XSelectInput(mydisplay,mywindow,ExposureMask|KeyPressMask|ButtonPressMask|ButtonMotionMask);
 	            
-	mycolormap = DefaultColormap(mydisplay,myscreen);                 
-	                    
-	XAllocNamedColor(mydisplay,mycolormap,"red",&mycolor,&dummy);
-	            
-	XAllocNamedColor(mydisplay,mycolormap,"blue",&mycolor1,&dummy);
+	mycolormap = DefaultColormap(mydisplay,myscreen);                
 
 	XAllocNamedColor(mydisplay,mycolormap,"red",&redColor,&dummy);
 	XAllocNamedColor(mydisplay,mycolormap,"blue",&blueColor,&dummy);
@@ -252,11 +328,7 @@ int main(int argc, char const *argv[]) {
 
 	bufw=(struct buffer *) malloc(bufsize);
 
-	Region rect;
-	Region rect2;
-
 	int start = 0;
-	int colorCheck = -1;
 
 	fdw=open("data",O_WRONLY|O_CREAT|O_APPEND,0700);
   
@@ -271,26 +343,9 @@ int main(int argc, char const *argv[]) {
 
    			case Expose:
    				if (start == 0) {
-		   			printf("start\n");
-		   			XSetForeground(mydisplay,mygc,greenColor.pixel);
-		   			XPoint pt_arr[4];
-		   			pt_arr[0].x = currentX1;
-				    pt_arr[0].y = currentY1;
-				    pt_arr[1].x = currentX1 + RECTSIZE;
-				    pt_arr[1].y = currentY1;
-				    pt_arr[2].x = currentX1 + RECTSIZE;
-				    pt_arr[2].y = currentY1 + RECTSIZE;
-				    pt_arr[3].x = currentX1;
-				    pt_arr[3].y = currentY1 + RECTSIZE;
-
-				    currentPlayer.pid = p;
-				    currentPlayer.region = XPolygonRegion(&pt_arr, 4, EvenOddRule);
-				    XSetRegion(mydisplay, mygc, currentPlayer.region);
-				    XFillRectangle(mydisplay,mywindow,mygc,currentX1,currentY1,currentX2,currentY2);
-				    XFlush(mydisplay);
 		   			start = 1;
-		   			bufw->x=currentX1;
-              		bufw->y=currentY1;
+		   			bufw->x=startX1;
+              		bufw->y=startY1;
 
               		bufw->prev=0;
               		bufw->pid=p;
@@ -298,7 +353,6 @@ int main(int argc, char const *argv[]) {
               		bufw->newRunnerPid = -1;
 		   			write(fdw,bufw,bufsize);
 		   			
-		   			XDestroyRegion(currentPlayer.region);
 	   			}
 	            break;
 
@@ -310,8 +364,6 @@ int main(int argc, char const *argv[]) {
 
            	case MotionNotify:
          
-
-
               	xw=myevent.xmotion.x;
              	yw=myevent.xmotion.y;
              	if (xw > 500 || xw <=0 || yw > 500 || yw <= 0) {
@@ -321,16 +373,16 @@ int main(int argc, char const *argv[]) {
               	bufw->y=yw;
               	bufw->pid=p;
               	bufw->newRunnerPid = -1;
+              	bufw->end = 0;
 
-              	int index = getPlayerIndex(players, playersNumber, p);
-              	if (players[index].isChasing == 1) {
+              	int index = getPlayerIndex(players, MAXPLAYERS, p);
+              	if (players[index].isChasing == 1 && players[index].lockMoves == 0) {
 	               	int k;
-		            for (k = 0; k < playersNumber; k++) {
+		            for (k = 0; k < MAXPLAYERS; k++) {
 		               	Region intersect = XCreateRegion();
-		               	if (players[k].pid != p) {
+		               	if (players[k].pid > 0 && players[k].pid != p) {
 		               		XIntersectRegion(players[index].region, players[k].region, intersect);
 		               		if (!(XEmptyRegion(intersect) == True)) {
-					  //printf("Found not-empty\n");
 								bufw->newRunnerPid = players[k].pid;
 							    break;
 		               		}
@@ -343,13 +395,20 @@ int main(int argc, char const *argv[]) {
               	break;
 
             case KeyPress:
-	      //printf("End\n");
-            	playersNumber--;
             	bufw->pid=p;
             	bufw->end = 1;
             	bufw->newRunnerPid = -1;
+            	int cind = getPlayerIndex(players, MAXPLAYERS, p);
+            	if (players[cind].isChasing == 1) {
+            		int k;
+            		for (k = 0; k < MAXPLAYERS; k++) {
+            			if (players[k].pid > 0 && players[k].pid != p) {
+            				bufw->newRunnerPid = players[k].pid;
+            				break;
+            			}
+            		}
+            	}
             	write(fdw,bufw,bufsize);
-     
             	XCloseDisplay(mydisplay);
             	exit(0);
    		}
