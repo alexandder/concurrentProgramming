@@ -125,14 +125,14 @@ void *reader(void *argum) {
 			               		}
 		              	 	}
 			            	XFlush(mydisplay);
-			               	printf("Change, nplayers: %d\n", playersNumber);
+/*			               	printf("Change, nplayers: %d\n", playersNumber);
 		            		for (j = 0; j < MAXPLAYERS; ++j) {
 			               		if (players[j].pid > -1000) {
 			               			printf("PID: %d\tchasing:%d\tlockMoves:%d\n",players[j].pid, players[j].isChasing, players[j].lockMoves);
 			               		}
 		               		}
 		               	printf("\n");
-			            }
+			            }*/
 		        	}
 
 		            // Add new player
@@ -186,13 +186,13 @@ void *reader(void *argum) {
 
 		               	}
 		            	XFlush(mydisplay);
-		            	printf("Add, nplayers: %d\n", playersNumber);
+/*		            	printf("Add, nplayers: %d\n", playersNumber);
 		            	for (j = 0; j < MAXPLAYERS; ++j) {
 			               	if (players[j].pid > -1000) {
 			               		printf("PID: %d\tchasing:%d\tlockMoves:%d\n",players[j].pid, players[j].isChasing, players[j].lockMoves);
 			               	}
 		               	}
-		               	printf("\n");
+		               	printf("\n");*/
 		            }
 		            // Exit
 		            else if (buf->end == 1) {
@@ -224,13 +224,13 @@ void *reader(void *argum) {
 
 		               	}
 		               	playersNumber--;
-		               	printf("exit, nplayers: %d\n", playersNumber);
+/*		               	printf("exit, nplayers: %d\n", playersNumber);
 		               	for (j = 0; j < MAXPLAYERS; ++j) {
 			               	if (players[j].pid > -1000) {
 			               		printf("PID: %d\tchasing:%d\tlockMoves:%d\n",players[j].pid, players[j].isChasing, players[j].lockMoves);
 			               	}
 		               	}
-		               	printf("\n");
+		               	printf("\n");*/
 		            	XFlush(mydisplay);
 
 		            }
