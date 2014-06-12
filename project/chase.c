@@ -131,8 +131,8 @@ void *reader(void *argum) {
 			               			printf("PID: %d\tchasing:%d\tlockMoves:%d\n",players[j].pid, players[j].isChasing, players[j].lockMoves);
 			               		}
 		               		}
-		               	printf("\n");
-			            }*/
+		               	printf("\n");*/
+			            }
 		        	}
 
 		            // Add new player
@@ -413,6 +413,5 @@ int main(int argc, char const *argv[]) {
             	exit(0);
    		}
    }
-
    return 0;
 }
